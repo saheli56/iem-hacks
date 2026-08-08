@@ -12,8 +12,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       let sessionCookies = undefined;
       if (message.withSession) {
         try {
-          const url = new URL(message.url);
-          const raw = await chrome.cookies.getAll({ domain: url.hostname });
+          const raw = await chrome.cookies.getAll({ url: message.url });
           sessionCookies = raw.map((c) => ({
             name: c.name,
             value: c.value,
