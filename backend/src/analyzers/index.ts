@@ -11,6 +11,7 @@ import { MisconfigChecker } from "./misconfig-checker.js";
 import { XssChecker } from "./xss-checker.js";
 import { NetworkChecker } from "./network-checker.js";
 import { TrackerChecker } from "./tracker-checker.js";
+import { PiiChecker } from "./pii-checker.js";
 
 // Register all checkers
 const checkers = [
@@ -23,6 +24,7 @@ const checkers = [
   new XssChecker(),
   new NetworkChecker(),
   new TrackerChecker(),
+  new PiiChecker(),
 ];
 
 /**

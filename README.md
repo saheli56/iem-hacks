@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Trust Issue
 
-## Getting Started
+Trust Issue is a web security scanner built to test applications for vulnerabilities and tracking scripts. It uses Playwright to crawl pages, runs deterministic checks against the network traffic, and uses an LLM to suggest fixes for the findings.
 
-First, run the development server:
+## How it works
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+The scanner runs in three steps:
+
+1. **Crawl:** A headless browser (Playwright) maps out the site, finds forms, and triggers network requests.
+2. **Analyze:** Custom checkers inspect the network traffic and crawler data for common issues (XSS, missing headers, exposed PII, auth issues, and third-party trackers).
+3. **Remediate:** Findings are passed to an LLM to generate context-aware fixes.
+
+## Features
+
+- **Session Sync (Chrome Extension):** If you need to scan authenticated pages, the included Chrome Extension can pass your active session cookies directly to the backend crawler.
+- **PII Detection:** Flags API responses that leak credit cards, SSNs, or bulk email addresses.
+- **Tracker Detection:** Identifies third-party analytics and tracking scripts.
+- **Web Dashboard:** A Next.js frontend that streams scan progress via WebSockets.
+- **JSON Export:** Download the raw scan data and AI remediations.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    User([User]) --> Dash["Dashboard"]
+    User --> Ext["Chrome Extension"]
+    
+    Dash & Ext -->|Start Scan| API["REST API"]
+    
+    subgraph Engine ["Node.js Backend"]
+        API --> Manager["Scan Manager"]
+        Manager --> Crawler["Playwright Crawler"]
+        Crawler --> Analyzers["Deterministic Analyzers"]
+        Analyzers --> Manager
+    end
+    
+    Crawler <-->|Crawls| Target[("Target Website")]
+    Manager <-->|Requests Fixes| LLM(("AI Model"))
+    
+    Manager -.->|Live Updates| Dash
+    Manager -.->|Live Updates| Ext
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- `/backend`: Node.js engine that handles Playwright, the WebSocket server, and the analysis logic.
+- `/src` & `/app`: Next.js 14 frontend dashboard.
+- `/extension`: Chrome extension for session management.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Setup Instructions
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Prerequisites
+- Node.js (v18+)
+- Chrome / Chromium
 
-## Learn More
+### 1. Run the Backend
+The backend handles the actual crawling and analysis.
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 2. Run the Frontend
+The Next.js app serves the dashboard interface.
+```bash
+# In the root directory
+npm install
+npm run dev
+```
+Open `http://localhost:3000` in your browser.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. Load the Chrome Extension (Optional)
+To scan pages that require you to be logged in:
+1. Open Chrome and go to `chrome://extensions`.
+2. Turn on **Developer mode**.
+3. Click **Load unpacked** and select the `/extension` folder.
+4. Click the extension icon on any webpage to start a scan using your current session.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Disclaimer
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This tool is for educational purposes and auditing applications you have permission to test. Do not use it against unauthorized targets.

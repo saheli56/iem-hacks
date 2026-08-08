@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   RefreshCw,
+  Download,
 } from "lucide-react";
 
 export default function ScanResultPage({
@@ -30,14 +31,29 @@ export default function ScanResultPage({
 
   const handleRescan = async () => {
     if (!scan) return;
+    setIsRescanning(true);
     try {
-      setIsRescanning(true);
       const res = await startScan(scan.config.targetUrl, scan.config.maxDepth, scan.config.maxPages);
       router.push(`/scan/${res.scanId}`);
     } catch (err) {
-      alert("Failed to start rescan: " + (err as Error).message);
+      setError((err as Error).message);
+    } finally {
       setIsRescanning(false);
     }
+  };
+
+  const handleExport = () => {
+    if (!scan) return;
+    const data = JSON.stringify(scan, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `trustissue-report-${scan.id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -120,10 +136,16 @@ export default function ScanResultPage({
             </p>
           </div>
         </div>
-        <Button onClick={handleRescan} disabled={isRescanning} size="sm" className="gap-2">
-          <RefreshCw className={`h-3.5 w-3.5 ${isRescanning ? "animate-spin" : ""}`} /> 
-          {isRescanning ? "Starting..." : "Rescan URL"}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleExport} disabled={scan?.status !== "completed"} variant="outline" size="sm" className="gap-2">
+            <Download className="h-3.5 w-3.5" /> 
+            Export Report
+          </Button>
+          <Button onClick={handleRescan} disabled={isRescanning} size="sm" className="gap-2">
+            <RefreshCw className={`h-3.5 w-3.5 ${isRescanning ? "animate-spin" : ""}`} /> 
+            {isRescanning ? "Starting..." : "Rescan URL"}
+          </Button>
+        </div>
       </div>
 
       {/* Stats strip */}
