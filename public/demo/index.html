@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexaFlow — Payments & Analytics</title>
+
+  <!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  SECURITY DEMO TARGET — Intentionally Vulnerable             ║
+  ║  Designed to trigger detections in the Trust Issue scanner.  ║
+  ║                                                              ║
+  ║  Embedded issues:                                            ║
+  ║  [1] Exposed API keys  (Stripe, AWS, Google, Generic)       ║
+  ║  [2] JWT stored in localStorage / sessionStorage             ║
+  ║  [3] Hardcoded JWT token in inline script                    ║
+  ║  [4] Session cookies without Secure / HttpOnly / SameSite   ║
+  ║  [5] Three POST forms with zero CSRF protection             ║
+  ║  [6] All security response headers absent                    ║
+  ╚══════════════════════════════════════════════════════════════╝
+  -->
+
+  <!-- ════════════════════════════════════════════════════════
+       VULNERABILITY 1 — Exposed API keys in client-side config
+       Triggers: Stripe secret key, AWS access key, Google API key,
+                 generic secret/api_key pattern
+       ════════════════════════════════════════════════════════ -->
+  <script>
+    const NEXAFLOW_CONFIG = {
+      stripe_secret:   "sk_live_51NzFakeKeyForDemoXXXXXXXXXXXXXXXXXXX",
+      google_maps_key: "AIzaSyDemoFakeKeyForTestingXXXXXXXXXXX",
+      aws_access_key:  "AKIAIOSFODNN7DEMOKEI",
+      aws_secret_key:  "aws_secret_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiDEMOEXAMPLE'",
+      api_key:         "nexaflow-internal-api-key-prod-v2-xxxxxxxx",
+    };
+    window.__config = NEXAFLOW_CONFIG;
+  </script>
+
+  <!-- ════════════════════════════════════════════════════════
+       VULNERABILITY 2 — JWT / auth token stored in browser storage
+       Triggers: localStorage.setItem with token/auth/access key
+       ════════════════════════════════════════════════════════ -->
+  <script>
+    // Auth: persist session across page reloads
+    localStorage.setItem("access_token", window.__pendingToken || "");
+    localStorage.setItem("user_auth", window.__userAuth || "");
+    sessionStorage.setItem("refresh_token", window.__refresh || "");
+
+    function hydrateAuth(token) {
+      localStorage.setItem("access_token", token);
+    }
+  </script>
+
+  <!-- ════════════════════════════════════════════════════════
+       VULNERABILITY 3 — Hardcoded JWT in source + insecure cookies
+       Triggers: eyJ...eyJ...signature pattern (critical),
+                 document.cookie without Secure/HttpOnly/SameSite
+       ════════════════════════════════════════════════════════ -->
+  <script>
+    // Dev debug token — never removed before deploy
+    const _DEV_ADMIN_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNjE2MjM5MDIyfQ.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ";
+
+    // Session management — cookies set without any security flags
+    document.cookie = "session_id=nexaflow_sess_prod_abc123xyz; path=/";
+    document.cookie = "auth_token=bearer_user_auth_xyz789abc; path=/";
+    document.cookie = "csrf_bypass=disabled_for_legacy; path=/";
+    document.cookie = "user_prefs=sidebar_collapsed%3Dtrue; path=/";
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: #f4f5f7;
+      color: #1a1d23;
+      min-height: 100vh;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Demo Banner ── */
+    .demo-banner {
+      background: #0f0f23;
+      color: #a5b4fc;
+      text-align: center;
+      padding: 9px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      border-bottom: 1px solid #1e1b4b;
+    }
+    .demo-banner code {
+      background: #1e1b4b;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: monospace;
+      color: #c7d2fe;
+      font-size: 11px;
+    }
+
+    /* ── Layout ── */
+    .app-shell { display: flex; height: calc(100vh - 38px); overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .sidebar-logo {
+      padding: 18px 20px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .logo-mark {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .logo-text { font-size: 15px; font-weight: 700; color: #111827; letter-spacing: -0.02em; }
+    .logo-badge {
+      font-size: 9px;
+      background: #eef2ff;
+      color: #4f46e5;
+      padding: 1px 5px;
+      border-radius: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .sidebar-section { padding: 12px 12px 4px; }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9ca3af;
+      padding: 0 8px 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      color: #6b7280;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.1s;
+      text-decoration: none;
+    }
+    .nav-item:hover { background: #f9fafb; color: #111827; }
+    .nav-item.active { background: #eef2ff; color: #4f46e5; }
+    .nav-icon { width: 16px; font-style: normal; font-size: 14px; }
+
+    /* ── Header ── */
+    .main-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .topbar-title { font-size: 15px; font-weight: 600; color: #111827; letter-spacing: -0.01em; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 12px; font-weight: 700;
+    }
+    .badge {
+      background: #ecfdf5; color: #059669;
+      font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 99px;
+    }
+
+    /* ── Content ── */
+    .content { flex: 1; overflow-y: auto; padding: 24px; }
+
+    /* ── Cards ── */
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 20px 22px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 2px;
+    }
+    .card-sub {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 16px;
+    }
+    .vuln-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    .tag-critical { background: #fef2f2; color: #dc2626; }
+    .tag-high { background: #fff7ed; color: #d97706; }
+    .tag-medium { background: #fffbeb; color: #b45309; }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px; }
+    .form-input {
+      width: 100%;
+      padding: 8px 11px;
+      background: #f9fafb;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #111827;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus { border-color: #4f46e5; background: #fff; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.1s;
+    }
+    .btn-primary { background: #4f46e5; color: #fff; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-ghost { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+    .btn-ghost:hover { background: #e5e7eb; }
+
+    /* ── Stats strip ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .stat-label { font-size: 11px; color: #9ca3af; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat-value { font-size: 24px; font-weight: 700; color: #111827; margin: 4px 0 2px; letter-spacing: -0.03em; }
+    .stat-change { font-size: 11px; color: #059669; font-weight: 500; }
+    .stat-change.down { color: #dc2626; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f9fafb; color: #374151; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    /* ── 2-col layout ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    /* ── Alert ── */
+    .alert {
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .alert-warn { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+    .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .alert-strong { font-weight: 600; }
+
+    /* ── Key display ── */
+    .key-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #4b5563;
+      margin-bottom: 10px;
+    }
+    .key-label { font-size: 11px; color: #9ca3af; width: 120px; shrink: 0; font-family: sans-serif; }
+
+    /* ── Section title ── */
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: #f3f4f6; }
+
+    hr { border: none; border-top: 1px solid #f3f4f6; margin: 16px 0; }
+    small { color: #9ca3af; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+  <!-- Demo Banner -->
+  <div class="demo-banner">
+    ⚠ SECURITY DEMO TARGET &nbsp;·&nbsp; Intentionally vulnerable · Scan with
+    <code>http://localhost:3000/demo/</code> &nbsp;·&nbsp; All findings are deliberate
+  </div>
+
+  <div class="app-shell">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-mark">N</div>
+        <span class="logo-text">NexaFlow</span>
+        <span class="logo-badge">Pro</span>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Main</div>
+        <a class="nav-item active" href="#">
+          <i class="nav-icon">◼</i> Dashboard
+        </a>
+        <a class="nav-item" href="#">
+          <i class="nav-icon">↑↓</i> Transactions
+        </a>
+        <a class="nav-item" href="#">
+          <i class="nav-icon">◎</i> Analytics
+        </a>
+        <a class="nav-item" href="#">
+          <i class="nav-icon">☁</i> Webhooks
+        </a>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Account</div>
+        <a class="nav-item" href="#settings-section">
+          <i class="nav-icon">⚙</i> API Settings
+        </a>
+        <a class="nav-item" href="#auth-section">
+          <i class="nav-icon">🔑</i> Authentication
+        </a>
+        <a class="nav-item" href="#profile-section">
+          <i class="nav-icon">◉</i> Profile
+        </a>
+      </div>
+    </aside>
+
+    <!-- ── Main Column ── -->
+    <div class="main-col">
+
+      <!-- Topbar -->
+      <header class="topbar">
+        <span class="topbar-title">Dashboard Overview</span>
+        <div class="topbar-right">
+          <span class="badge">● Live</span>
+          <div class="avatar">JD</div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <main class="content">
+
+        <!-- ── Stats ── -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Revenue</div>
+            <div class="stat-value">$84,320</div>
+            <div class="stat-change">↑ 12.4% this month</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Transactions</div>
+            <div class="stat-value">2,841</div>
+            <div class="stat-change">↑ 8.1% this month</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Failed</div>
+            <div class="stat-value">37</div>
+            <div class="stat-change down">↑ 3.2% this month</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Active Users</div>
+            <div class="stat-value">1,209</div>
+            <div class="stat-change">↑ 5.7% this month</div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════
+             VULNERABILITY 1 — API Keys visible in page source
+             AND also accessible at window.__config in DevTools
+             ════════════════════════════════════════════════════ -->
+        <div id="settings-section" class="card">
+          <span class="vuln-tag tag-critical">⚡ Critical · API Key Exposure</span>
+          <div class="card-title">API Configuration</div>
+          <div class="card-sub">Production credentials — integrated with live Stripe, AWS, and Google services.</div>
+
+          <div class="alert alert-warn">
+            <span>⚠</span>
+            <div>
+              <span class="alert-strong">These keys are embedded in client-side JavaScript.</span>
+              Anyone can read them in DevTools or page source, then use them to make charges, access S3 buckets, or scrape data.
+            </div>
+          </div>
+
+          <div class="key-field">
+            <span class="key-label">Stripe Secret Key</span>
+            <span>sk_live_51NzFakeKeyForDemoXXXXXXXXXXXXXXXXXXX</span>
+          </div>
+          <div class="key-field">
+            <span class="key-label">Google Maps API</span>
+            <span>AIzaSyDemoFakeKeyForTestingXXXXXXXXXXX</span>
+          </div>
+          <div class="key-field">
+            <span class="key-label">AWS Access Key</span>
+            <span>AKIAIOSFODNN7DEMOKEI</span>
+          </div>
+          <div class="key-field">
+            <span class="key-label">Internal API Key</span>
+            <span>nexaflow-internal-api-key-prod-v2-xxxxxxxx</span>
+          </div>
+
+          <small>Used by the frontend JS bundle. Rotate immediately after scanning.</small>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════
+             VULNERABILITY 5 — CSRF: Login form (POST + password)
+             No hidden csrf/xsrf/_token input · severity = HIGH
+             ════════════════════════════════════════════════════ -->
+        <div id="auth-section" class="card">
+          <span class="vuln-tag tag-high">⚠ High · CSRF + Cookie exposure</span>
+          <div class="card-title">Sign In to NexaFlow</div>
+          <div class="card-sub">POST /api/auth/login — no CSRF token, password in plain form.</div>
+
+          <form action="/api/auth/login" method="POST">
+            <!-- NOTE: No <input type="hidden" name="csrf_token"> present -->
+            <div class="form-group">
+              <label class="form-label">Email address</label>
+              <input class="form-input" type="email" name="email" placeholder="you@company.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input class="form-input" type="password" name="password" placeholder="••••••••">
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; margin-top:4px;">
+              <button type="submit" class="btn btn-primary">Sign In</button>
+              <small>No CSRF token — cross-site request forgery possible</small>
+            </div>
+          </form>
+        </div>
+
+        <!-- ── Recent Transactions table ── -->
+        <div class="card">
+          <div class="card-title">Recent Transactions</div>
+          <div class="card-sub">Last 5 payment events from the Stripe webhook queue.</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Customer</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>txn_3NzFakeDemoA</code></td>
+                  <td>Alice Johnson</td>
+                  <td>$249.00</td>
+                  <td><span class="badge">Paid</span></td>
+                  <td>2026-02-27</td>
+                </tr>
+                <tr>
+                  <td><code>txn_3NzFakeDemoB</code></td>
+                  <td>Bob Williams</td>
+                  <td>$89.00</td>
+                  <td><span class="badge">Paid</span></td>
+                  <td>2026-02-26</td>
+                </tr>
+                <tr>
+                  <td><code>txn_3NzFakeDemoC</code></td>
+                  <td>Carol Martinez</td>
+                  <td>$450.00</td>
+                  <td><span style="color:#dc2626;font-weight:500;font-size:11px;">Failed</span></td>
+                  <td>2026-02-26</td>
+                </tr>
+                <tr>
+                  <td><code>txn_3NzFakeDemoD</code></td>
+                  <td>David Chen</td>
+                  <td>$1,200.00</td>
+                  <td><span class="badge">Paid</span></td>
+                  <td>2026-02-25</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 2-col section -->
+        <div class="two-col">
+
+          <!-- ════════════════════════════════════════════════════
+               VULNERABILITY 5b — CSRF: Payment/transfer form
+               POST + credit_card field · severity = HIGH
+               ════════════════════════════════════════════════════ -->
+          <div class="card" style="margin-bottom:0">
+            <span class="vuln-tag tag-high">⚠ High · CSRF (payment form)</span>
+            <div class="card-title">Manual Charge</div>
+            <div class="card-sub">POST /api/payment/charge — no anti-CSRF token on financial form.</div>
+
+            <form action="/api/payment/charge" method="POST">
+              <!-- NOTE: No CSRF token hidden field -->
+              <div class="form-group">
+                <label class="form-label">Cardholder Name</label>
+                <input class="form-input" type="text" name="cardholder_name" placeholder="Alice Johnson">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Card Number</label>
+                <input class="form-input" type="text" name="credit_card" placeholder="4242 4242 4242 4242">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Expiry</label>
+                  <input class="form-input" type="text" name="expiry" placeholder="12/27">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">CVC</label>
+                  <input class="form-input" type="text" name="cvc" placeholder="123">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Amount (USD)</label>
+                <input class="form-input" type="number" name="amount" placeholder="0.00">
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button type="submit" class="btn btn-danger">Process Payment</button>
+                <button type="button" class="btn btn-ghost">Cancel</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- ════════════════════════════════════════════════════
+               VULNERABILITY 2 + 3 — JWT in localStorage &
+               hardcoded admin token displayed in settings
+               ════════════════════════════════════════════════════ -->
+          <div class="card" style="margin-bottom:0">
+            <span class="vuln-tag tag-critical">⚡ Critical · JWT exposed</span>
+            <div class="card-title">Token Debug Panel</div>
+            <div class="card-sub">Auth tokens stored in localStorage, hardcoded admin token present in bundle.</div>
+
+            <div class="alert alert-info">
+              <span>ℹ</span>
+              <div>
+                <span class="alert-strong">access_token</span> is written to <code>localStorage</code> on every page load.
+                The admin override token is hardcoded in the JS bundle.
+              </div>
+            </div>
+
+            <div class="key-field" style="flex-direction:column; align-items:flex-start; gap:4px;">
+              <span style="font-family:sans-serif; font-size:11px; color:#9ca3af;">Admin JWT (hardcoded in script)</span>
+              <span style="word-break:break-all; font-size:11px; color:#6b7280;">
+                eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.<br>
+                eyJzdWIiOiIxMjM0NTY3ODkwIiwicm9sZSI6ImFkbWluIn0.<br>
+                TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
+              </span>
+            </div>
+
+            <small>
+              localStorage.getItem("access_token") is readable by any script on the page. Use HttpOnly cookies instead.
+            </small>
+          </div>
+
+        </div>
+
+        <!-- spacer -->
+        <div style="height: 20px;"></div>
+
+        <!-- ════════════════════════════════════════════════════
+             VULNERABILITY 4 — Insecure cookies
+             session_id, auth_token set without Secure /
+             HttpOnly / SameSite flags (via document.cookie)
+             ════════════════════════════════════════════════════ -->
+        <div id="profile-section" class="card">
+          <span class="vuln-tag tag-medium">▲ Medium · Insecure Cookies</span>
+          <div class="card-title">Session & Cookie Inspector</div>
+          <div class="card-sub">
+            Cookies set by this page: <code>session_id</code>, <code>auth_token</code>, <code>user_prefs</code> —
+            all missing Secure, HttpOnly, and SameSite flags.
+          </div>
+
+          <div class="alert alert-warn">
+            <span>⚠</span>
+            <div>
+              These cookies are set via <code>document.cookie</code> without <code>Secure</code>, <code>HttpOnly</code>, or <code>SameSite</code>.
+              They are readable by JavaScript (XSS risk) and transmittable over HTTP (interception risk).
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Cookie Name</th>
+                <th>HttpOnly</th>
+                <th>Secure</th>
+                <th>SameSite</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>session_id</code></td>
+                <td style="color:#dc2626">✗ No</td>
+                <td style="color:#dc2626">✗ No</td>
+                <td style="color:#dc2626">Not set</td>
+                <td><span class="vuln-tag tag-high" style="margin:0">High</span></td>
+              </tr>
+              <tr>
+                <td><code>auth_token</code></td>
+                <td style="color:#dc2626">✗ No</td>
+                <td style="color:#dc2626">✗ No</td>
+                <td style="color:#dc2626">Not set</td>
+                <td><span class="vuln-tag tag-high" style="margin:0">High</span></td>
+              </tr>
+              <tr>
+                <td><code>user_prefs</code></td>
+                <td style="color:#dc2626">✗ No</td>
+                <td style="color:#dc2626">✗ No</td>
+                <td style="color:#dc2626">Not set</td>
+                <td><span class="vuln-tag tag-medium" style="margin:0">Medium</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════
+             VULNERABILITY 5c — CSRF: Profile update form
+             POST + email + password · severity = HIGH
+             ════════════════════════════════════════════════════ -->
+        <div class="card">
+          <span class="vuln-tag tag-high">⚠ High · CSRF (profile update)</span>
+          <div class="card-title">Update Profile</div>
+          <div class="card-sub">POST /api/user/profile — state-changing request with no CSRF protection.</div>
+
+          <form action="/api/user/profile" method="POST">
+            <!-- NOTE: No CSRF token hidden field -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input class="form-input" type="text" name="full_name" placeholder="John Doe">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email address</label>
+                <input class="form-input" type="email" name="email" placeholder="john@nexaflow.io">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input class="form-input" type="password" name="password" placeholder="••••••••">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm Password</label>
+                <input class="form-input" type="password" name="confirm_password" placeholder="••••••••">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </form>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════
+             VULNERABILITY 6 — Missing Security Headers
+             All 7 headers absent: CSP, HSTS, X-Content-Type,
+             X-Frame-Options, Referrer-Policy, Permissions-Policy,
+             X-XSS-Protection
+             ════════════════════════════════════════════════════ -->
+        <div class="card">
+          <span class="vuln-tag tag-high">⚠ High / Med · Missing Security Headers</span>
+          <div class="card-title">HTTP Response Header Audit</div>
+          <div class="card-sub">All 7 security-critical headers are absent from this page's HTTP response.</div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Header</th>
+                <th>Status</th>
+                <th>Risk</th>
+                <th>Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Content-Security-Policy</code></td>
+                <td style="color:#dc2626; font-weight:600;">MISSING</td>
+                <td>High</td>
+                <td>XSS, inline script injection</td>
+              </tr>
+              <tr>
+                <td><code>Strict-Transport-Security</code></td>
+                <td style="color:#dc2626; font-weight:600;">MISSING</td>
+                <td>High</td>
+                <td>Protocol downgrade, MITM</td>
+              </tr>
+              <tr>
+                <td><code>X-Content-Type-Options</code></td>
+                <td style="color:#dc2626; font-weight:600;">MISSING</td>
+                <td>Medium</td>
+                <td>MIME-type sniffing</td>
+              </tr>
+              <tr>
+                <td><code>X-Frame-Options</code></td>
+                <td style="color:#dc2626; font-weight:600;">MISSING</td>
+                <td>Medium</td>
+                <td>Clickjacking</td>
+              </tr>
+              <tr>
+                <td><code>Referrer-Policy</code></td>
+                <td style="color:#dc2626; font-weight:600;">MISSING</td>
+                <td>Low</td>
+                <td>URL leakage to 3rd parties</td>
+              </tr>
+              <tr>
+                <td><code>Permissions-Policy</code></td>
+                <td style="color:#dc2626; font-weight:600;">MISSING</td>
+                <td>Low</td>
+                <td>Unconstrained browser APIs</td>
+              </tr>
+              <tr>
+                <td><code>X-XSS-Protection</code></td>
+                <td style="color:#dc2626; font-weight:600;">MISSING</td>
+                <td>Info</td>
+                <td>Legacy XSS filter disabled</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer note -->
+        <div style="text-align:center; padding: 20px 0 32px; color: #9ca3af; font-size: 11px;">
+          NexaFlow Demo Environment &nbsp;·&nbsp; Intentionally Vulnerable Target &nbsp;·&nbsp;
+          Scan URL: <code style="background:#f3f4f6; padding:1px 5px; border-radius:3px;">http://localhost:3000/demo/</code>
+        </div>
+
+      </main>
+    </div><!-- /main-col -->
+  </div><!-- /app-shell -->
+
+</body>
+</html>
