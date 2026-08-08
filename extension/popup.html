@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 480px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #09090b;
+      color: #ececee;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #ececee;
+    }
+
+    .body { padding: 18px 20px; }
+
+    .url-input-wrap {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .url-input-wrap .url-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4e4e52;
+      pointer-events: none;
+    }
+    .url-input {
+      width: 100%;
+      background: #0f0f11;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 12px 14px 12px 34px;
+      font-size: 13px;
+      font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+      color: #ececee;
+      outline: none;
+      transition: border-color 0.15s;
+      box-sizing: border-box;
+    }
+    .url-input::placeholder { color: #4e4e52; }
+    .url-input:focus { border-color: rgba(255,255,255,0.25); }
+    .url-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .scan-btn {
+      width: 100%;
+      padding: 11px;
+      background: #ececee;
+      color: #09090b;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .scan-btn:hover { background: #ffffff; }
+    .scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+      color: #4e4e52;
+      font-size: 12px;
+    }
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+    }
+    .current-page-btn {
+      width: 100%;
+      padding: 10px;
+      background: rgba(255,255,255,0.06);
+      color: #ececee;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .current-page-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
+    .current-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .session-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .session-toggle input[type="checkbox"] { display: none; }
+    .toggle-track {
+      width: 32px;
+      height: 18px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 9px;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 12px;
+      height: 12px;
+      background: #8b8b8e;
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .session-toggle input:checked + .toggle-track { background: rgba(236,236,238,0.2); }
+    .session-toggle input:checked + .toggle-track::after { transform: translateX(14px); background: #ececee; }
+    .toggle-label { font-size: 12px; color: #8b8b8e; }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: #0f0f11;
+      border: 1px solid rgba(255,255,255,0.07);
+      color: #8b8b8e;
+    }
+    .status.visible { display: flex; }
+    .status.success { color: #4ade80; }
+    .status.error { color: #f87171; }
+
+    .status .dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      background: #8b8b8e;
+    }
+    .status.info .dot { background: #8b8b8e; animation: pulse 1.5s infinite; }
+    .status.success .dot { background: #4ade80; }
+    .status.error .dot { background: #f87171; }
+
+    .actions {
+      margin-top: 12px;
+      display: none;
+      gap: 8px;
+    }
+    .actions.visible { display: flex; }
+
+    .action-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: transparent;
+      color: #8b8b8e;
+      transition: all 0.1s;
+    }
+    .action-btn:hover { border-color: rgba(255,255,255,0.2); color: #ececee; }
+    .action-btn.primary {
+      background: #ececee;
+      border-color: transparent;
+      color: #09090b;
+    }
+    .action-btn.primary:hover { background: #ffffff; }
+
+    .cancel-scan-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 9px;
+      background: transparent;
+      color: #f87171;
+      border: 1px solid rgba(248,113,113,0.3);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: none;
+    }
+    .cancel-scan-btn.visible { display: block; }
+    .cancel-scan-btn:hover { background: rgba(248,113,113,0.07); border-color: rgba(248,113,113,0.55); }
+    .cancel-scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .footer {
+      padding: 12px 20px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .footer a {
+      font-size: 12px;
+      color: #8b8b8e;
+      text-decoration: none;
+    }
+    .footer a:hover { color: #ececee; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Trust Issue</h1>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="url-input-wrap">
+      <svg class="url-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+      </svg>
+      <input class="url-input" type="text" id="currentUrl" placeholder="https://example.com" autocomplete="off" spellcheck="false" />
+    </div>
+
+    <button class="scan-btn" id="scanBtn">Scan URL</button>
+
+    <div class="divider">or</div>
+    <button class="current-page-btn" id="currentPageBtn">Scan Current Page</button>
+
+    <label class="session-toggle">
+      <input type="checkbox" id="sessionToggle" />
+      <span class="toggle-track"></span>
+      <span class="toggle-label">Use my logged-in session</span>
+    </label>
+
+    <div class="status" id="status">
+      <div class="dot"></div>
+      <span id="statusText"></span>
+    </div>
+
+    <button class="cancel-scan-btn" id="cancelScanBtn">Cancel Scan</button>
+
+    <div class="actions" id="actions">
+      <button class="action-btn primary" id="viewReportBtn">View Report</button>
+      <button class="action-btn" id="openPanelBtn">Live Panel</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="http://localhost:3000" target="_blank">Open Dashboard</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

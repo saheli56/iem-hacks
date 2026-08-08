@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #09090b;
+      color: #ececee;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 14px 18px;
+      background: #09090b;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 8px; }
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #ececee;
+    }
+    .header-status {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #8b8b8e;
+    }
+    .header-status.visible { display: flex; }
+    .header-status .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: pulse 1.5s infinite;
+    }
+    .cancel-btn {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      background: transparent;
+      border: 1px solid rgba(248,113,113,0.3);
+      border-radius: 6px;
+      color: #f87171;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cancel-btn.visible { display: flex; }
+    .cancel-btn:hover { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.6); }
+    .cancel-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Browser Chrome ── */
+    .browser-chrome {
+      flex-shrink: 0;
+      background: #0f0f11;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      padding: 10px 14px 12px;
+    }
+    .url-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      font-size: 13px;
+      transition: border-color 0.15s;
+    }
+    .url-bar.navigating { border-color: rgba(255,255,255,0.2); }
+    .url-bar .lock-icon { color: #4e4e52; flex-shrink: 0; }
+    .url-bar .nav-spinner {
+      width: 12px; height: 12px;
+      border: 1.5px solid #4e4e52;
+      border-top-color: #8b8b8e;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      flex-shrink: 0;
+      display: none;
+    }
+    .url-bar.navigating .nav-spinner { display: block; }
+    .url-bar.navigating .lock-icon { display: none; }
+    .url-bar .url-text {
+      flex: 1;
+      color: #8b8b8e;
+      font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+    .url-bar .url-text .domain { color: #ececee; }
+
+    /* Step pills */
+    .step-bar {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding-top: 10px;
+      font-size: 12px;
+    }
+    .step-bar.visible { display: flex; }
+    .step-pill {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: transparent;
+      color: #4e4e52;
+      font-weight: 500;
+      transition: all 0.15s;
+      font-size: 12px;
+    }
+    .step-pill.active { color: #ececee; background: rgba(255,255,255,0.04); }
+    .step-pill.done { color: #4ade80; }
+    .step-pill .sdot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .step-pill.active .sdot { animation: pulse 1s infinite; }
+    .step-arrow { color: #4e4e52; font-size: 11px; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      background: #0a0a0c;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 13px;
+      color: #8b8b8e;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-bar.visible { display: flex; }
+    .status-bar .sb-spinner {
+      width: 12px; height: 12px;
+      border: 1.5px solid #4e4e52;
+      border-top-color: #ececee;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    .status-bar .sb-text { flex: 1; }
+    .status-bar .sb-pages {
+      font-family: ui-monospace, 'SF Mono', monospace;
+      font-size: 12px;
+      color: #8b8b8e;
+      flex-shrink: 0;
+    }
+
+    /* ── Viewport ── */
+    .viewport {
+      flex: 1;
+      position: relative;
+      background: #060607;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .viewport img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: opacity 0.2s;
+    }
+    .viewport-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #4e4e52;
+      gap: 6px;
+    }
+    .viewport-empty svg { opacity: 0.15; }
+    .viewport-empty p { font-size: 13px; }
+
+    /* Navigation overlay */
+    .nav-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(9,9,11,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+    }
+    .nav-overlay.visible { display: flex; }
+    .nav-overlay .nav-text {
+      background: rgba(9,9,11,0.9);
+      border: 1px solid rgba(255,255,255,0.07);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #8b8b8e;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-overlay .nav-spinner-lg {
+      width: 14px; height: 14px;
+      border: 1.5px solid #4e4e52;
+      border-top-color: #8b8b8e;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* ── Event Ticker ── */
+    .ticker {
+      flex-shrink: 0;
+      height: 195px;
+      background: #060607;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .ticker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 16px;
+      font-size: 11px;
+      color: #8b8b8e;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .ticker-header .badge {
+      background: rgba(255,255,255,0.05);
+      color: #8b8b8e;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-family: ui-monospace, monospace;
+    }
+    .ticker-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2px 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .ticker-scroll::-webkit-scrollbar { width: 3px; }
+    .ticker-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
+    .tick-entry {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.025);
+      animation: fadeSlideIn 0.15s ease-out;
+    }
+    .tick-entry:last-child { border-bottom: none; }
+    .tick-tag {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 3px;
+      min-width: 54px;
+      text-align: center;
+    }
+    .tick-tag-start   { background: rgba(96,165,250,0.12);  color: #60a5fa; }
+    .tick-tag-crawl   { background: rgba(147,197,253,0.1);  color: #93c5fd; }
+    .tick-tag-loaded  { background: rgba(74,222,128,0.1);   color: #4ade80; }
+    .tick-tag-error   { background: rgba(248,113,113,0.12); color: #f87171; }
+    .tick-tag-check   { background: rgba(34,211,238,0.1);   color: #22d3ee; }
+    .tick-tag-ai      { background: rgba(192,132,252,0.12); color: #c084fc; }
+    .tick-tag-done    { background: rgba(74,222,128,0.15);  color: #4ade80; }
+    .tick-tag-status  { background: rgba(250,204,21,0.1);   color: #facc15; }
+    .tick-tag-critical { background: rgba(248,113,113,0.15); color: #f87171; }
+    .tick-tag-high    { background: rgba(251,146,60,0.15);  color: #fb923c; }
+    .tick-tag-medium  { background: rgba(250,204,21,0.12);  color: #facc15; }
+    .tick-tag-low     { background: rgba(96,165,250,0.12);  color: #60a5fa; }
+    .tick-tag-info    { background: rgba(139,139,142,0.12); color: #8b8b8e; }
+    .tick-text {
+      flex: 1;
+      color: #8b8b8e;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+    .tick-time {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: #4e4e52;
+      font-family: ui-monospace, 'SF Mono', monospace;
+    }
+
+    /* ── Findings bar ── */
+    .findings-bar {
+      flex-shrink: 0;
+      background: #09090b;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding: 10px 16px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .findings-bar.visible { display: flex; }
+    .findings-bar .fb-label { color: #8b8b8e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+    .findings-bar .fb-pills { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+    .fb-pill {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .fb-critical { background: rgba(248,113,113,0.12); color: #f87171; }
+    .fb-high { background: rgba(251,146,60,0.12); color: #fb923c; }
+    .fb-medium { background: rgba(250,204,21,0.12); color: #facc15; }
+    .fb-low { background: rgba(96,165,250,0.12); color: #60a5fa; }
+    .fb-info { background: rgba(139,139,142,0.12); color: #8b8b8e; }
+    .fb-total {
+      margin-left: auto;
+      color: #ececee;
+      font-family: ui-monospace, monospace;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* ── Progress bar ── */
+    .progress-track {
+      flex-shrink: 0;
+      height: 2px;
+      background: rgba(255,255,255,0.04);
+    }
+    .progress-fill {
+      height: 100%;
+      background: #ececee;
+      width: 0%;
+      transition: width 0.5s ease-out;
+    }
+
+    /* ── Idle / Start ── */
+    .idle-view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 36px 24px;
+      text-align: center;
+    }
+    .idle-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ececee;
+      letter-spacing: -0.02em;
+    }
+    .idle-desc { font-size: 13px; color: #8b8b8e; line-height: 1.6; max-width: 260px; }
+    .idle-scan-btn {
+      padding: 11px 28px;
+      background: #ececee;
+      color: #09090b;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.1s;
+      width: 100%;
+      max-width: 320px;
+    }
+    .idle-scan-btn:hover { background: #ffffff; }
+    .idle-scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .idle-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 320px;
+      color: #4e4e52;
+      font-size: 12px;
+    }
+    .idle-divider::before,
+    .idle-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+    }
+    .idle-current-btn {
+      padding: 10px 24px;
+      background: rgba(255,255,255,0.06);
+      color: #ececee;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+      max-width: 320px;
+    }
+    .idle-current-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
+    .idle-current-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .session-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 320px;
+      margin-top: 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .session-toggle input[type="checkbox"] { display: none; }
+    .toggle-track {
+      width: 32px;
+      height: 18px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 9px;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 12px;
+      height: 12px;
+      background: #8b8b8e;
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .session-toggle input:checked + .toggle-track { background: rgba(236,236,238,0.2); }
+    .session-toggle input:checked + .toggle-track::after { transform: translateX(14px); background: #ececee; }
+    .toggle-label { font-size: 12px; color: #8b8b8e; }
+
+    .idle-url-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+    }
+    .idle-url-wrap .url-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4e4e52;
+      pointer-events: none;
+    }
+    .idle-url-input {
+      width: 100%;
+      background: #0f0f11;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 11px 14px 11px 34px;
+      font-size: 13px;
+      font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+      color: #ececee;
+      outline: none;
+      transition: border-color 0.15s;
+      box-sizing: border-box;
+    }
+    .idle-url-input::placeholder { color: #4e4e52; }
+    .idle-url-input:focus { border-color: rgba(255,255,255,0.25); }
+
+    /* ── Completion Banner ── */
+    .complete-banner {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 28px 24px;
+    }
+    .complete-banner.visible { display: flex; }
+    .complete-text { text-align: center; }
+    .complete-text h3 { font-size: 16px; font-weight: 600; color: #ececee; }
+    .complete-text p { font-size: 13px; color: #8b8b8e; margin-top: 4px; }
+    .complete-btn {
+      padding: 10px 24px;
+      background: #ececee;
+      color: #09090b;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .complete-btn:hover { background: #ffffff; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>Trust Issue</h1>
+    </div>
+    <div class="live-badge" id="liveBadge" style="display:none"></div>
+    <div class="header-status" id="headerStatus">
+      <div class="status-dot"></div>
+      <span id="headerStatusText">Scanning</span>
+    </div>
+    <button class="cancel-btn" id="cancelBtn" title="Cancel scan">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Cancel
+    </button>
+  </div>
+
+  <!-- Browser chrome (URL bar) -->
+  <div class="browser-chrome" id="browserChrome" style="display:none">
+    <div class="url-bar" id="urlBar">
+      <svg class="lock-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+      </svg>
+      <div class="nav-spinner"></div>
+      <span class="url-text" id="urlText">Waiting…</span>
+    </div>
+    <div class="step-bar" id="stepBar">
+      <div class="step-pill" id="sCrawl"><div class="sdot"></div>Crawl</div>
+      <span class="step-arrow">›</span>
+      <div class="step-pill" id="sAnalyze"><div class="sdot"></div>Analyze</div>
+      <span class="step-arrow">›</span>
+      <div class="step-pill" id="sAI"><div class="sdot"></div>AI Fix</div>
+      <span class="step-arrow">›</span>
+      <div class="step-pill" id="sDone"><div class="sdot"></div>Done</div>
+    </div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-track" id="progressTrack" style="display:none">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+
+  <!-- Status bar (shows current action) -->
+  <div class="status-bar" id="statusBar" style="display:none">
+    <div class="sb-spinner"></div>
+    <span class="sb-text" id="statusBarText">Starting scan…</span>
+    <span class="sb-pages" id="statusBarPages"></span>
+  </div>
+
+  <!-- Idle View -->
+  <div class="idle-view" id="idleView">
+    <div class="idle-title">Security Scanner</div>
+    <div class="idle-desc">Scan any website for vulnerabilities. Watch navigation in real-time.</div>
+    <div class="idle-url-wrap">
+      <svg class="url-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+      </svg>
+      <input class="idle-url-input" type="text" id="idleUrlInput" placeholder="https://example.com" autocomplete="off" spellcheck="false" />
+    </div>
+    <button class="idle-scan-btn" id="idleScanBtn">Scan URL</button>
+    <div class="idle-divider">or</div>
+    <button class="idle-current-btn" id="idleCurrentBtn">Scan Current Page</button>
+    <label class="session-toggle">
+      <input type="checkbox" id="sessionToggle" />
+      <span class="toggle-track"></span>
+      <span class="toggle-label">Use my logged-in session</span>
+    </label>
+  </div>
+
+  <!-- VIEWPORT -->
+  <div class="viewport" id="viewport" style="display:none">
+    <div class="viewport-empty" id="viewportEmpty">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>
+      </svg>
+      <p>Connecting…</p>
+    </div>
+    <img id="viewportImg" style="display:none" alt="Live browser viewport">
+
+    <!-- Navigation overlay -->
+    <div class="nav-overlay" id="navOverlay">
+      <div class="nav-text">
+        <div class="nav-spinner-lg"></div>
+        <span id="navLabel">Navigating…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event ticker -->
+  <div class="ticker" id="ticker" style="display:none">
+    <div class="ticker-header">
+      <span>Activity</span>
+      <span class="badge" id="tickerCount">0</span>
+    </div>
+    <div class="ticker-scroll" id="tickerScroll"></div>
+  </div>
+
+  <!-- Findings bar -->
+  <div class="findings-bar" id="findingsBar">
+    <span class="fb-label">Issues</span>
+    <div class="fb-pills" id="findingsPills"></div>
+    <span class="fb-total" id="findingsTotal">0</span>
+  </div>
+
+  <!-- Completion banner -->
+  <div class="complete-banner" id="completeBanner">
+    <div class="complete-text">
+      <h3>Scan Complete</h3>
+      <p id="completeSubtext"></p>
+    </div>
+    <button class="complete-btn" id="viewReportBtn">View Report</button>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
