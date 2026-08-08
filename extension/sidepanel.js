@@ -32,6 +32,7 @@ const findingsTotal = document.getElementById("findingsTotal");
 const completeBanner = document.getElementById("completeBanner");
 const completeSubtext = document.getElementById("completeSubtext");
 const viewReportBtn = document.getElementById("viewReportBtn");
+const rescanBtn = document.getElementById("rescanBtn");
 const idleScanBtn = document.getElementById("idleScanBtn");
 const idleUrlInput = document.getElementById("idleUrlInput");
 const idleCurrentBtn = document.getElementById("idleCurrentBtn");
@@ -181,6 +182,14 @@ function resetToIdle() {
 viewReportBtn.addEventListener("click", () => {
   if (activeScanId) {
     chrome.tabs.create({ url: `${DASHBOARD_URL}/scan/${activeScanId}` });
+  }
+});
+
+// ── Rescan button ──
+rescanBtn?.addEventListener("click", () => {
+  if (idleUrlInput && idleUrlInput.value) {
+    resetToIdle();
+    startScanFromIdle(idleUrlInput.value.trim());
   }
 });
 

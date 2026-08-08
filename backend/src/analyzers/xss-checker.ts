@@ -45,24 +45,6 @@ export class XssChecker implements SecurityChecker {
               : `Payload "${sub.payloadUsed}" appeared verbatim in response body.`,
             detectedAt: new Date().toISOString(),
           });
-        } else if (sub.payloadType === "sqli") {
-          findings.push({
-            id: uuidv4(),
-            category: "sqli-reflected",
-            severity: "critical",
-            title: "Potential SQL Injection via Form Input",
-            description:
-              `A SQL injection probe string (${sub.payloadUsed}) was submitted to the ` +
-              `form at ${shortUrl(sub.formAction)} (method: ${sub.method}) and the raw ` +
-              `string was reflected in the response. This may indicate that the input is ` +
-              `not sanitised before being embedded in a SQL query, or that a database ` +
-              `error message is leaking the original input back to the browser.`,
-            affectedUrl: sub.formAction || sub.sourceUrl,
-            evidence: sub.responseSnippet
-              ? `Reflected snippet: …${sub.responseSnippet}…`
-              : `Payload "${sub.payloadUsed}" appeared verbatim in response body.`,
-            detectedAt: new Date().toISOString(),
-          });
         }
       }
     }

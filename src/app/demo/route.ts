@@ -476,6 +476,13 @@ const HTML = /* html */ `<!DOCTYPE html>
     .progress-track { background: #f1f5f9; border-radius: 99px; height: 6px; overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 99px; }
   </style>
+  <!-- ═══════════════════════════════════════════════════════
+       VULN 9 — Third-Party Trackers
+       Checker: TrackerChecker
+       Patterns hit: google-analytics.com, mixpanel.com
+       ═══════════════════════════════════════════════════════ -->
+  <script src="https://www.google-analytics.com/analytics.js"></script>
+  <script src="https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js"></script>
 </head>
 <body>
 

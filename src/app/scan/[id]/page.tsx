@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { getScan } from "@/lib/api";
+import { getScan, startScan } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { SeverityBadge } from "@/components/ui/severity-badge";
 import type { ScanResult, Finding, Severity } from "@/types/scan";
@@ -12,6 +12,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 
 export default function ScanResultPage({
@@ -24,12 +25,43 @@ export default function ScanResultPage({
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"security" | "trackers" | "pages">("security");
+  const [isRescanning, setIsRescanning] = useState(false);
+
+  const handleRescan = async () => {
+    if (!scan) return;
+    try {
+      setIsRescanning(true);
+      const res = await startScan(scan.config.targetUrl, scan.config.maxDepth, scan.config.maxPages);
+      router.push(`/scan/${res.scanId}`);
+    } catch (err) {
+      alert("Failed to start rescan: " + (err as Error).message);
+      setIsRescanning(false);
+    }
+  };
 
   useEffect(() => {
-    getScan(id)
-      .then(setScan)
-      .catch((err) => setError((err as Error).message))
-      .finally(() => setLoading(false));
+    let intervalId: NodeJS.Timeout;
+
+    const fetchScan = () => {
+      getScan(id)
+        .then((data) => {
+          setScan(data);
+          if (data.status === "completed" || data.status === "aborted" || data.status === "error") {
+            clearInterval(intervalId);
+          }
+        })
+        .catch((err) => {
+          setError((err as Error).message);
+          clearInterval(intervalId);
+        })
+        .finally(() => setLoading(false));
+    };
+
+    fetchScan(); // Initial fetch
+    intervalId = setInterval(fetchScan, 1000); // Poll every second
+
+    return () => clearInterval(intervalId);
   }, [id]);
 
   if (loading) {
@@ -65,24 +97,33 @@ export default function ScanResultPage({
     ? `${Math.round((new Date(scan.completedAt).getTime() - new Date(scan.startedAt).getTime()) / 1000)}s`
     : "—";
 
+  const securityFindings = scan.findings.filter(f => f.category !== "trackers");
+  const trackerFindings = scan.findings.filter(f => f.category === "trackers");
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push("/scan")}
-          className="p-1.5 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div>
-          <h1 className="text-lg font-medium tracking-[-0.02em] text-[var(--text-primary)]">
-            Scan Results
-          </h1>
-          <p className="text-[12px] text-[var(--text-secondary)] font-mono mt-0.5">
-            {scan.config.targetUrl}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/scan")}
+            className="p-1.5 rounded-md hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <h1 className="text-lg font-medium tracking-[-0.02em] text-[var(--text-primary)]">
+              Scan Results
+            </h1>
+            <p className="text-[12px] text-[var(--text-secondary)] font-mono mt-0.5">
+              {scan.config.targetUrl}
+            </p>
+          </div>
         </div>
+        <Button onClick={handleRescan} disabled={isRescanning} size="sm" className="gap-2">
+          <RefreshCw className={`h-3.5 w-3.5 ${isRescanning ? "animate-spin" : ""}`} /> 
+          {isRescanning ? "Starting..." : "Rescan URL"}
+        </Button>
       </div>
 
       {/* Stats strip */}
@@ -132,23 +173,57 @@ export default function ScanResultPage({
         </div>
       </div>
 
-      {/* Findings */}
-      <div>
-        <h2 className="text-[13px] font-medium text-[var(--text-primary)] mb-3">
-          Findings ({scan.findings.length})
-        </h2>
-        <div className="space-y-2">
-          {scan.findings.map((finding) => (
-            <FindingCard key={finding.id} finding={finding} />
-          ))}
-        </div>
+      {/* Tabs */}
+      <div className="flex border-b border-[var(--border-secondary)]">
+        {(["security", "trackers", "pages"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 text-[13px] font-medium capitalize border-b-2 transition-colors cursor-pointer ${
+              activeTab === tab
+                ? "border-[var(--text-primary)] text-[var(--text-primary)]"
+                : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            {tab === "pages" ? "Crawled Pages" : tab} (
+            {tab === "security"
+              ? securityFindings.length
+              : tab === "trackers"
+              ? trackerFindings.length
+              : scan.crawledPages.length}
+            )
+          </button>
+        ))}
       </div>
 
-      {/* Crawled pages */}
-      <div>
-        <h2 className="text-[13px] font-medium text-[var(--text-primary)] mb-3">
-          Crawled Pages ({scan.crawledPages.length})
-        </h2>
+      {/* Tab Content */}
+      {activeTab === "security" && (
+        <div className="space-y-2">
+          {securityFindings.map((finding) => (
+            <FindingCard key={finding.id} finding={finding} />
+          ))}
+          {securityFindings.length === 0 && (
+            <div className="glass-card p-6 text-center text-[var(--text-secondary)] text-[13px]">
+              No security vulnerabilities found!
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "trackers" && (
+        <div className="space-y-2">
+          {trackerFindings.map((finding) => (
+            <FindingCard key={finding.id} finding={finding} />
+          ))}
+          {trackerFindings.length === 0 && (
+            <div className="glass-card p-6 text-center text-[var(--text-secondary)] text-[13px]">
+              No third-party trackers detected.
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "pages" && (
         <div className="glass-card overflow-hidden divide-y divide-[var(--border-secondary)]">
           {scan.crawledPages.map((page, index) => (
             <div
@@ -175,7 +250,7 @@ export default function ScanResultPage({
             </div>
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
