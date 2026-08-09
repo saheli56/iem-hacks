@@ -19,13 +19,8 @@ app.disable("x-powered-by");
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow: frontend, chrome extensions, and no-origin (e.g. curl)
-      const allowed = process.env.FRONTEND_URL || "http://localhost:3000";
-      if (!origin || origin === allowed || origin.startsWith("chrome-extension://")) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
+      // Allow all origins for the hackathon (Vercel, localhost, extensions)
+      callback(null, true);
     },
     credentials: true,
   })
