@@ -137,7 +137,7 @@ export default function ScanResultPage({
           </div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleExport} disabled={scan?.status !== "completed"} variant="outline" size="sm" className="gap-2">
+          <Button onClick={handleExport} disabled={scan?.status !== "completed"} variant="secondary" size="sm" className="gap-2">
             <Download className="h-3.5 w-3.5" /> 
             Export Report
           </Button>

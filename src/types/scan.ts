@@ -15,7 +15,8 @@ export type VulnerabilityCategory =
   | "misconfiguration"
   | "sensitive-exposure"
   | "information-leak"
-  | "cors-misconfiguration";
+  | "cors-misconfiguration"
+  | "trackers";
 
 // ── Individual security finding ──
 export interface Finding {
