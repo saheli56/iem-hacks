@@ -11,10 +11,16 @@ const scans = new Map<string, ScanResult>();
 
 // POST /api/scan — Start a new scan
 scanRouter.post("/", (req: Request, res: Response) => {
+  console.log("[DEBUG] /api/scan hit with body:", req.body);
   const { targetUrl, maxDepth = 3, maxPages = 50, sessionCookies, geminiKey } = req.body as Partial<ScanConfig> & { sessionCookies?: { name: string; value: string; domain: string; path: string }[], geminiKey?: string };
 
   if (!targetUrl || typeof targetUrl !== "string") {
-    res.status(400).json({ error: "targetUrl is required" });
+    console.error("[DEBUG] Invalid targetUrl. req.body:", req.body);
+    res.status(400).json({ 
+      error: "targetUrl is required", 
+      debugBody: req.body,
+      receivedType: typeof req.body 
+    });
     return;
   }
 
