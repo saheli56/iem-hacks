@@ -16,7 +16,9 @@ export type VulnerabilityCategory =
   | "misconfiguration"
   | "sensitive-exposure"
   | "information-leak"
-  | "cors-misconfiguration";
+  | "cors-misconfiguration"
+  | "pii-leak"
+  | "trackers";
 
 export interface Finding {
   id: string;
@@ -46,6 +48,14 @@ export interface CrawledPage {
   timestamp: string;
   /** Results from active form-probing with injection payloads */
   formSubmissions: FormSubmissionResult[];
+  /** Optional network requests captured during the page load */
+  networkRequests?: {
+    url: string;
+    method: string;
+    resourceType: string;
+    responseBody?: string;
+    postData?: string;
+  }[];
 }
 
 export interface CookieInfo {

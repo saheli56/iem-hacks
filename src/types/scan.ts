@@ -16,7 +16,8 @@ export type VulnerabilityCategory =
   | "sensitive-exposure"
   | "information-leak"
   | "cors-misconfiguration"
-  | "trackers";
+  | "trackers"
+  | "pii-leak";
 
 // ── Individual security finding ──
 export interface Finding {
