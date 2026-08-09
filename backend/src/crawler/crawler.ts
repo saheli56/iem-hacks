@@ -64,7 +64,13 @@ export class Crawler {
       console.log("[Crawler] Launching browser...");
       this.browser = await chromium.launch({
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: [
+          "--no-sandbox", 
+          "--disable-setuid-sandbox", 
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--single-process"
+        ],
       });
       console.log("[Crawler] Browser launched successfully");
 
