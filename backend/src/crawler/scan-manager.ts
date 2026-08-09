@@ -59,7 +59,7 @@ export class ScanManager {
         data: { status: "generating-report", findingsCount: findings.length },
       });
       console.log(`[ScanManager] Generating AI remediations for scan ${scan.id}`);
-      await generateRemediations(scan.findings, scan.id);
+      await generateRemediations(scan.findings, scan.id, (scan.config as any).geminiKey);
 
       if ((scan.status as ScanStatus) === "aborted") return;
 

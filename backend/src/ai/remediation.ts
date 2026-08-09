@@ -6,10 +6,10 @@ import { scanEventBus } from "../events.js";
 
 let genAI: GoogleGenerativeAI | null = null;
 
-function getClient(): GoogleGenerativeAI | null {
-  if (genAI) return genAI;
+function getClient(providedKey?: string): GoogleGenerativeAI | null {
+  if (genAI && !providedKey) return genAI;
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = providedKey || process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "your_api_key_here") {
     return null;
   }
@@ -167,9 +167,10 @@ function getFallbackRemediation(finding: Finding): AiRemediation {
  * Falls back to curated templates if Gemini is unavailable.
  */
 export async function generateRemediation(
-  finding: Finding
+  finding: Finding,
+  geminiKey?: string
 ): Promise<AiRemediation> {
-  const client = getClient();
+  const client = getClient(geminiKey);
 
   if (!client) {
     console.log("[AI] No Gemini API key — using fallback remediation");
@@ -208,11 +209,12 @@ export async function generateRemediation(
  */
 export async function generateRemediations(
   findings: Finding[],
-  scanId?: string
+  scanId?: string,
+  geminiKey?: string
 ): Promise<Finding[]> {
   if (findings.length === 0) return findings;
 
-  const client = getClient();
+  const client = getClient(geminiKey);
   const BATCH_SIZE = client ? 5 : findings.length; // process all instantly for fallback
   const mode = client ? "gemini" : "fallback";
 
@@ -238,7 +240,7 @@ export async function generateRemediations(
             data: { findingId: f.id, title: f.title, index: i + j, total: findings.length },
           });
         }
-        const result = await generateRemediation(f);
+        const result = await generateRemediation(f, geminiKey);
         if (scanId) {
           scanEventBus.emit(scanId, {
             type: "ai:finding-done",

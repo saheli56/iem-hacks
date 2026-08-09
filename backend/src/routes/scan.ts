@@ -11,7 +11,7 @@ const scans = new Map<string, ScanResult>();
 
 // POST /api/scan — Start a new scan
 scanRouter.post("/", (req: Request, res: Response) => {
-  const { targetUrl, maxDepth = 3, maxPages = 50, sessionCookies } = req.body as Partial<ScanConfig> & { sessionCookies?: { name: string; value: string; domain: string; path: string }[] };
+  const { targetUrl, maxDepth = 3, maxPages = 50, sessionCookies, geminiKey } = req.body as Partial<ScanConfig> & { sessionCookies?: { name: string; value: string; domain: string; path: string }[], geminiKey?: string };
 
   if (!targetUrl || typeof targetUrl !== "string") {
     res.status(400).json({ error: "targetUrl is required" });
@@ -40,7 +40,7 @@ scanRouter.post("/", (req: Request, res: Response) => {
   const scanId = uuidv4();
   const scan: ScanResult = {
     id: scanId,
-    config: { targetUrl: parsed.href, maxDepth: depth, maxPages: pages, ...(Array.isArray(sessionCookies) && sessionCookies.length ? { sessionCookies } : {}) },
+    config: { targetUrl: parsed.href, maxDepth: depth, maxPages: pages, geminiKey, ...(Array.isArray(sessionCookies) && sessionCookies.length ? { sessionCookies } : {}) } as any,
     status: "idle",
     startedAt: new Date().toISOString(),
     pagesVisited: 0,
@@ -126,7 +126,8 @@ scanRouter.post(
     }
 
     try {
-      const remediation = await generateRemediation(finding);
+      const { geminiKey } = req.body;
+      const remediation = await generateRemediation(finding, geminiKey);
       finding.remediation = remediation;
       res.json({ findingId, remediation });
     } catch (err) {

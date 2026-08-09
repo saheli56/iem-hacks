@@ -98,10 +98,16 @@ export default function SettingsPage() {
           <div className="px-4 py-3">
             <p className="text-[13px] text-[var(--text-primary)] mb-1">Gemini API Key</p>
             <p className="text-[11px] text-[var(--text-tertiary)] mb-2">
-              Set in the backend <code className="font-mono text-[var(--text-secondary)]">.env</code> file. Uses fallback templates when not configured.
+              Keys are stored securely in your browser's local storage and sent to the AI engine during scans.
             </p>
             <div className="rounded-md bg-[var(--bg-inset)] border border-[var(--border-secondary)] px-3 py-2">
-              <span className="text-[11px] text-[var(--text-tertiary)] font-mono">GEMINI_API_KEY=••••••••</span>
+              <input
+                type="password"
+                value={geminiKey}
+                onChange={(e) => setGeminiKey(e.target.value)}
+                placeholder="AIzaSy..."
+                className="w-full bg-transparent text-[11px] text-[var(--text-primary)] font-mono outline-none"
+              />
             </div>
           </div>
         </div>

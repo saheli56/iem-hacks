@@ -14,13 +14,13 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** Start a new scan */
 export function startScan(targetUrl: string, maxDepth = 3, maxPages = 50) {
+  const geminiKey = localStorage.getItem("trustissue_gemini_key") || undefined;
   return fetchJSON<{ scanId: string; status: string }>(
     `${API_BASE}/api/scan`,
     {
       method: "POST",
-      body: JSON.stringify({ targetUrl, maxDepth, maxPages }),
+      body: JSON.stringify({ targetUrl, maxDepth, maxPages, geminiKey }),
     }
   );
 }
@@ -98,8 +98,12 @@ export function abortScan(scanId: string) {
 
 /** Re-generate AI remediation for a finding */
 export function regenerateRemediation(scanId: string, findingId: string) {
+  const geminiKey = localStorage.getItem("trustissue_gemini_key") || undefined;
   return fetchJSON<{ findingId: string; remediation: { explanation: string; fix: string; cursorPrompt: string } }>(
     `${API_BASE}/api/scan/${encodeURIComponent(scanId)}/finding/${encodeURIComponent(findingId)}/remediate`,
-    { method: "POST" }
+    { 
+      method: "POST",
+      body: JSON.stringify({ geminiKey }),
+    }
   );
 }
