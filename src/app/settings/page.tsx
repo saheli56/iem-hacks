@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Globe, Check } from "lucide-react";
 
@@ -9,8 +9,18 @@ export default function SettingsPage() {
   const [apiUrl, setApiUrl] = useState("http://localhost:3001");
   const [defaultDepth, setDefaultDepth] = useState(3);
   const [defaultPages, setDefaultPages] = useState(50);
+  const [geminiKey, setGeminiKey] = useState("");
+
+  useEffect(() => {
+    setGeminiKey(localStorage.getItem("trustissue_gemini_key") || "");
+  }, []);
 
   const handleSave = () => {
+    if (geminiKey.trim()) {
+      localStorage.setItem("trustissue_gemini_key", geminiKey.trim());
+    } else {
+      localStorage.removeItem("trustissue_gemini_key");
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
